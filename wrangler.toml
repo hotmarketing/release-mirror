@@ -33,7 +33,6 @@ preview_id = "952fd544ec4d4ab2b9456bd0382f78be"
 GITHUB_OWNER = "hotmarketing"
 CACHE_TTL_SECONDS = "300"
 
-# Dominio custom — se activa en Fase 4 tras configurar CNAME en Cloudflare DNS
-# [[routes]]
-# pattern = "releases.hotmarketing.cloud/*"
-# zone_name = "hotmarketing.cloud"
+# Dominio custom: releases.hotmarketing.cloud
+# Configurado vía dashboard de Cloudflare (Workers → hm-release-mirror → Custom Domains).
+# Alternativa equivalente (si preferís infra-as-code) es agregar un bloque [[routes]] aquí.
