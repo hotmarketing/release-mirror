@@ -1,0 +1,39 @@
+# Cloudflare Worker — Hot Marketing Release Mirror
+#
+# Sirve updates de plugins WordPress privados a clientes via PUC (plugin-update-checker)
+# con validación por site_token. El GitHub PAT vive aquí como secret — nunca en el cliente.
+#
+# Deploy:  npm run deploy
+# Logs:    npm run tail
+# Dev:     npm run dev  (http://localhost:8787)
+
+name = "hm-release-mirror"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Observability (logs en Cloudflare dashboard)
+[observability]
+enabled = true
+
+# KV: lookup de site_tokens
+# Crear con:  wrangler kv:namespace create SITE_TOKENS
+# Después pegar el `id` aquí. Para dev local crear con --preview también.
+[[kv_namespaces]]
+binding = "SITE_TOKENS"
+id = "PENDING_REPLACE_ME_AFTER_KV_CREATE"
+preview_id = "PENDING_REPLACE_ME_AFTER_KV_CREATE_PREVIEW"
+
+# Secrets (NO commitear aquí — usar `wrangler secret put`):
+#   GITHUB_PAT       — fine-grained PAT, Contents:Read sobre los repos de plugins
+#   ADMIN_TOKEN      — (opcional) para endpoints /admin/* de gestión de tokens vía HTTP
+
+# Variables públicas (no-secretas)
+[vars]
+GITHUB_OWNER = "hotmarketing"
+CACHE_TTL_SECONDS = "300"
+
+# Dominio custom — se activa en Fase 4 tras configurar CNAME en Cloudflare DNS
+# [[routes]]
+# pattern = "releases.hotmarketing.cloud/*"
+# zone_name = "hotmarketing.cloud"

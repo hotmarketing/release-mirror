@@ -1,0 +1,17 @@
+{
+  "name": "hm-release-mirror",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Worker que proxea releases de GitHub a PUC (plugin-update-checker) con validación por site_token. Killswitch y audit para plugins WordPress de Hot Marketing.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^3.80.0"
+  }
+}
