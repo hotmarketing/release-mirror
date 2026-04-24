@@ -21,8 +21,8 @@ enabled = true
 # Después pegar el `id` aquí. Para dev local crear con --preview también.
 [[kv_namespaces]]
 binding = "SITE_TOKENS"
-id = "PENDING_REPLACE_ME_AFTER_KV_CREATE"
-preview_id = "PENDING_REPLACE_ME_AFTER_KV_CREATE_PREVIEW"
+id = "497161462e904f1fbab7e07c5c9cde2a"
+preview_id = "952fd544ec4d4ab2b9456bd0382f78be"
 
 # Secrets (NO commitear aquí — usar `wrangler secret put`):
 #   GITHUB_PAT       — fine-grained PAT, Contents:Read sobre los repos de plugins
