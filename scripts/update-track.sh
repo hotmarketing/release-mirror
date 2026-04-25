@@ -31,7 +31,7 @@ fi
 cd "$(dirname "$0")/.."
 
 # Leer record actual
-CURRENT=$(npx wrangler kv key get --binding=SITE_TOKENS --preview false "$TOKEN" 2>/dev/null || true)
+CURRENT=$(npx wrangler kv key get --binding=SITE_TOKENS --remote "$TOKEN" 2>/dev/null || true)
 if [ -z "$CURRENT" ]; then
   echo "error: token no encontrado en KV" >&2
   exit 1
@@ -50,7 +50,7 @@ fi
 UPDATED=$(echo "$CURRENT" | jq --arg t "$NEW_TRACK" '.track = $t')
 
 # Escribir de vuelta
-echo "$UPDATED" | npx wrangler kv key put --binding=SITE_TOKENS --preview false "$TOKEN" --path=/dev/stdin
+echo "$UPDATED" | npx wrangler kv key put --binding=SITE_TOKENS --remote "$TOKEN" --path=/dev/stdin
 
 echo ""
 echo "✓ $CLIENT/$PLUGIN: track $OLD_TRACK → $NEW_TRACK"
