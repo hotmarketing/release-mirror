@@ -10,6 +10,15 @@
 
 set -euo pipefail
 
+# Cargar .env si existe (CLOUDFLARE_API_TOKEN para modo no-interactivo).
+ENV_FILE="$(dirname "$0")/../.env"
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
 if [ $# -lt 2 ]; then
   echo "uso: $0 <client> <plugin> [track=all] [allowed_domain] [notes]" >&2
   exit 1
