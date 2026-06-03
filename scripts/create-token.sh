@@ -52,7 +52,7 @@ if [ -z "$DOMAIN" ]; then
 fi
 
 cd "$(dirname "$0")/.."
-npx wrangler kv key put --binding=SITE_TOKENS --remote "$TOKEN" "$RECORD"
+npx wrangler kv key put --binding=SITE_TOKENS --remote --preview false "$TOKEN" "$RECORD"
 
 echo ""
 echo "════════════════════════════════════════════════════════════"
