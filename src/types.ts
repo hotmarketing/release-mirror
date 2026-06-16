@@ -18,7 +18,8 @@ export interface Env {
  */
 export interface SiteTokenRecord {
   client: string;              // nombre humano, ej. "secturi"
-  plugin: string;              // slug del repo, ej. "directorio-turistico"
+  plugins?: string[];          // slugs autorizados, ej. ["directorio-turistico"]. ["*"] = todos los plugins del owner.
+  plugin?: string;             // LEGACY: un solo slug. Retrocompat de tokens viejos; preferir `plugins`.
   active: boolean;             // killswitch
   track: ReleaseTrack;         // qué versiones ofrecerle
   allowed_domain?: string;     // si está seteado, valida Referer

@@ -11,6 +11,17 @@ export interface TokenValidation {
 }
 
 /**
+ * Plugins que un token autoriza. Soporta el modelo nuevo (`plugins: string[]`,
+ * con `"*"` como comodín = todos los plugins del owner) y el legacy (`plugin: string`,
+ * un solo slug) para no romper tokens emitidos antes del cambio.
+ */
+function authorizedPlugins(record: SiteTokenRecord): string[] {
+  if (Array.isArray(record.plugins)) return record.plugins;
+  if (record.plugin) return [record.plugin];
+  return [];
+}
+
+/**
  * Busca un site_token en KV y valida contra plugin/dominio opcional.
  *
  * @param env          Worker env
@@ -38,7 +49,8 @@ export async function validateSiteToken(
     if (Date.now() > expires) return { valid: false, reason: "expired", record };
   }
 
-  if (record.plugin !== plugin) {
+  const allowed = authorizedPlugins(record);
+  if (!allowed.includes("*") && !allowed.includes(plugin)) {
     return { valid: false, reason: "plugin_mismatch", record };
   }
 

@@ -58,7 +58,7 @@ TOKEN=$(openssl rand -hex 24)
 # Guardarlo en KV con metadata
 npx wrangler kv key put --binding=SITE_TOKENS "$TOKEN" '{
   "client": "secturi",
-  "plugin": "directorio-turistico",
+  "plugins": ["directorio-turistico"],
   "active": true,
   "track": "all",
   "allowed_domain": "guanajuato.mx",
@@ -69,7 +69,24 @@ npx wrangler kv key put --binding=SITE_TOKENS "$TOKEN" '{
 echo "Token para wp-config: $TOKEN"
 ```
 
-### Opción B — script helper (ver `scripts/create-token.sh`)
+El token es la **API key del cliente**: el campo `plugins` lista los slugs que
+autoriza. Un cliente integral usa `"plugins": ["*"]` (todos los plugins del owner);
+para restringir, listá slugs explícitos (`["directorio-turistico", "funciones-hot-marketing"]`).
+Un mismo token cubre varios plugins en el mismo sitio (todos leen el mismo
+`HM_SITE_TOKEN` en `wp-config.php`).
+
+> Retrocompat: los tokens viejos con `"plugin": "<slug>"` (singular) siguen
+> validando. Migralos a `plugins` con `scripts/update-token.sh` cuando toque.
+
+### Opción B — script helper (ver `scripts/create-token.sh` y `scripts/update-token.sh`)
+
+```bash
+# Crear token (plugins = "*" o CSV de slugs)
+./scripts/create-token.sh guanajuato "*" stable guanajuato.mx "Cliente integral"
+
+# Cambiar los plugins autorizados de un token vivo (sin regenerarlo)
+./scripts/update-token.sh "<token>" "directorio-turistico,funciones-hot-marketing"
+```
 
 ## Revocar un token (killswitch)
 
@@ -77,7 +94,7 @@ echo "Token para wp-config: $TOKEN"
 # Soft-revoke (recomendado — queda audit del token previamente activo)
 npx wrangler kv key put --binding=SITE_TOKENS "<token>" '{
   "client": "secturi",
-  "plugin": "directorio-turistico",
+  "plugins": ["directorio-turistico"],
   "active": false,
   "track": "all",
   "created_at": "2026-04-24T00:00:00Z",
@@ -154,7 +171,7 @@ npm run tail
 
 Zero-code: el Worker usa el primer path segment como repo name contra `hotmarketing/<plugin>`. Solo tenés que:
 
-1. Crear un `site_token` en KV con `plugin: "<nuevo-slug>"`.
+1. Crear (o ampliar) un `site_token` en KV cuyo `plugins` incluya `"<nuevo-slug>"` (o `"*"`).
 2. El cliente instala PUC apuntando a `https://releases.hotmarketing.cloud/<nuevo-slug>/info.json?site_token=X`.
 
 Importante: el PAT del Worker debe tener `Contents:Read` sobre el repo del nuevo plugin también.
@@ -163,7 +180,7 @@ Importante: el PAT del Worker debe tener `Contents:Read` sobre el repo del nuevo
 
 - **`token_invalid / not_found`**: el token no está en KV.
 - **`token_invalid / revoked`**: `active: false` en KV.
-- **`token_invalid / plugin_mismatch`**: el path es `/foo/...` pero el token está emitido para `bar`.
+- **`token_invalid / plugin_mismatch`**: el path es `/foo/...` pero `foo` no está en el `plugins` del token (ni tiene `"*"`).
 - **`token_invalid / domain_mismatch`**: el `Referer` no coincide con `allowed_domain`. Si el cliente corre en un subdominio raro, ajustá el token o borrá `allowed_domain`.
 - **`upstream_github`**: el PAT expiró o perdió permisos sobre el repo.
 - **Update no aparece en WP**: PUC cachea 12h en `wp_options`. Forzar: `wp transient delete "external_updates-<plugin-slug>"` o usar el botón "Check again" dentro del Worker (no es instantáneo por el cache nuestro de 5min).
