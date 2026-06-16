@@ -5,3 +5,8 @@ node_modules/
 *.log
 .DS_Store
 dist/
+
+# Claude Code — todo local, fuera de GitHub (solo se versiona el código).
+.claude/
+memory/
+CLAUDE.md
