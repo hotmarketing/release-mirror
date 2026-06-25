@@ -15,7 +15,7 @@ import { validateSiteToken } from "./kv";
 import { fetchReleases, pickLatestForTrack, pickZipAsset, streamAsset } from "./github";
 import { buildMetadata } from "./puc";
 
-const WORKER_VERSION = "0.1.0";
+const WORKER_VERSION = "0.2.0";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
