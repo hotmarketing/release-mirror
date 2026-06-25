@@ -23,7 +23,7 @@ import {
 } from "./github";
 import { buildMetadata } from "./puc";
 
-const WORKER_VERSION = "0.3.0";
+const WORKER_VERSION = "0.3.1";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -42,7 +42,10 @@ export default {
       });
     }
 
-    if (request.method !== "GET") {
+    // Aceptamos HEAD igual que GET (HTTP estándar: HEAD = GET sin cuerpo). Útil
+    // para que CDNs/proxies validen el ícono sin descargarlo; el runtime de
+    // Workers descarta el body en respuestas a HEAD automáticamente.
+    if (request.method !== "GET" && request.method !== "HEAD") {
       return json({ error: "method_not_allowed" }, 405);
     }
 
