@@ -72,6 +72,20 @@ export interface GitHubRelease {
   html_url: string;
 }
 
+/**
+ * Metadata de presentación parseada del header del archivo principal del plugin
+ * (`<repo>.php`). Todos opcionales — se omiten del info.json si no existen.
+ */
+export interface PluginHeader {
+  name?: string;
+  tested?: string;
+  requires?: string;
+  requiresPhp?: string;
+  author?: string;
+  authorUri?: string;
+  homepage?: string;
+}
+
 export interface GitHubAsset {
   id: number;
   name: string;

@@ -1,6 +1,6 @@
 {
   "name": "hm-release-mirror",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Cloudflare Worker que proxea releases de GitHub a PUC (plugin-update-checker) con validación por site_token. Killswitch y audit para plugins WordPress de Hot Marketing.",
   "scripts": {

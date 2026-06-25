@@ -2,13 +2,25 @@
  * Construye el metadata.json que espera plugin-update-checker.
  */
 
-import type { GitHubRelease, PucMetadata } from "./types";
+import type { GitHubRelease, PluginHeader, PucMetadata } from "./types";
 
 interface BuildMetadataOptions {
   release: GitHubRelease;
   pluginSlug: string;
   pluginName: string;
   downloadUrl: string;
+  header?: PluginHeader;
+  iconUrl?: string;     // URL absoluta (o plantilla __TEMPLATE__) del ícono servido por el Worker
+  iconIsSvg?: boolean;
+}
+
+/**
+ * WP usa `icons` para el avatar en la lista de updates y el modal de detalles.
+ * Si el ícono es .svg lo mandamos como svg; si no, como 1x/2x (mismo recurso).
+ */
+function buildIcons(iconUrl?: string, isSvg?: boolean): PucMetadata["icons"] {
+  if (!iconUrl) return undefined;
+  return isSvg ? { svg: iconUrl } : { "1x": iconUrl, "2x": iconUrl };
 }
 
 /**
@@ -36,15 +48,27 @@ export function buildMetadata({
   pluginSlug,
   pluginName,
   downloadUrl,
+  header = {},
+  iconUrl,
+  iconIsSvg,
 }: BuildMetadataOptions): PucMetadata {
+  const name = header.name ?? pluginName;
+  // JSON.stringify omite los undefined → los campos opcionales no aparecen.
   return {
-    name: pluginName,
+    name,
     slug: pluginSlug,
     version: normalizeVersion(release.tag_name),
     download_url: downloadUrl,
+    homepage: header.homepage,
+    requires: header.requires,
+    tested: header.tested,
+    requires_php: header.requiresPhp,
+    author: header.author,
+    author_homepage: header.authorUri,
+    icons: buildIcons(iconUrl, iconIsSvg),
     last_updated: formatDate(release.published_at),
     sections: {
-      description: pluginName,
+      description: name,
       changelog: release.body ?? "",
     },
   };

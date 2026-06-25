@@ -12,10 +12,18 @@
 
 import type { Env } from "./types";
 import { validateSiteToken } from "./kv";
-import { fetchReleases, pickLatestForTrack, pickZipAsset, streamAsset } from "./github";
+import {
+  fetchPluginHeader,
+  fetchReleases,
+  findRepoIcon,
+  pickLatestForTrack,
+  pickZipAsset,
+  streamAsset,
+  streamRepoIcon,
+} from "./github";
 import { buildMetadata } from "./puc";
 
-const WORKER_VERSION = "0.2.0";
+const WORKER_VERSION = "0.3.0";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -51,6 +59,12 @@ export default {
     // GET /:plugin/info.json
     if (parts.length === 2 && parts[1] === "info.json") {
       return handleInfo(request, env, ctx, parts[0]!, url);
+    }
+
+    // GET /:plugin/icon — público (un logo no es sensible), sin site_token,
+    // porque el <img> del wp-admin no lo manda. El Worker lo proxea con su PAT.
+    if (parts.length === 2 && parts[1] === "icon") {
+      return handleIcon(env, parts[0]!);
     }
 
     // GET /:plugin/download/:tag
@@ -109,13 +123,23 @@ async function handleInfo(
     const asset = pickZipAsset(release);
     if (!asset) return json({ error: "release_has_no_zip" }, 404);
 
-    // El download_url queda plantilla — abajo le embebemos el site_token del caller.
-    // Guardamos en cache la versión SIN token, y al servir la construimos.
+    // Enriquecemos con el header del plugin (tested, author...) y el ícono del
+    // repo. Ambos degradan a vacío ante cualquier fallo: nunca rompen el info.json.
+    const [header, iconName] = await Promise.all([
+      fetchPluginHeader({ owner: env.GITHUB_OWNER, repo: plugin, pat: env.GITHUB_PAT }),
+      findRepoIcon({ owner: env.GITHUB_OWNER, repo: plugin, pat: env.GITHUB_PAT }),
+    ]);
+
+    // El download_url y el icons quedan con plantilla __TEMPLATE__ → al servir la
+    // reemplazamos por el origin real. Cacheamos SIN token; el ZIP sí lo re-anexa.
     metadata = buildMetadata({
       release,
       pluginSlug: plugin,
       pluginName: plugin,
       downloadUrl: `__TEMPLATE__/${plugin}/download/${release.tag_name}`,
+      header,
+      iconUrl: iconName ? `__TEMPLATE__/${plugin}/icon` : undefined,
+      iconIsSvg: iconName?.toLowerCase().endsWith(".svg"),
     }) as unknown as Record<string, unknown>;
 
     const ttl = Number(env.CACHE_TTL_SECONDS) || 300;
@@ -132,7 +156,25 @@ async function handleInfo(
   );
   metadata.download_url = `${downloadUrl}?site_token=${encodeURIComponent(token!)}`;
 
+  // El ícono NO lleva token (lo carga el <img> del wp-admin). Solo resolvemos origin.
+  if (metadata.icons && typeof metadata.icons === "object") {
+    const icons = metadata.icons as Record<string, string>;
+    for (const k of Object.keys(icons)) {
+      icons[k] = icons[k]!.replace("__TEMPLATE__", `${url.origin}`);
+    }
+  }
+
   return json(metadata);
+}
+
+async function handleIcon(env: Env, plugin: string): Promise<Response> {
+  const name = await findRepoIcon({
+    owner: env.GITHUB_OWNER,
+    repo: plugin,
+    pat: env.GITHUB_PAT,
+  });
+  if (!name) return json({ error: "no_icon" }, 404);
+  return streamRepoIcon({ owner: env.GITHUB_OWNER, repo: plugin, name, pat: env.GITHUB_PAT });
 }
 
 async function handleDownload(

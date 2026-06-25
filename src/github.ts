@@ -2,7 +2,7 @@
  * GitHub API helpers — consulta releases y stream de assets con el PAT del Worker.
  */
 
-import type { GitHubRelease, ReleaseTrack } from "./types";
+import type { GitHubRelease, PluginHeader, ReleaseTrack } from "./types";
 
 const GITHUB_API = "https://api.github.com";
 const USER_AGENT = "hm-release-mirror/0.1";
@@ -132,6 +132,125 @@ export function pickLatestForTrack(
   return candidates.reduce((best, cur) =>
     compareSemver(cur.tag_name, best.tag_name) > 0 ? cur : best
   );
+}
+
+/**
+ * Lee el header del archivo principal del plugin desde la rama default del repo
+ * y lo parsea. Convención: el main file se llama `<repo>.php` en la raíz.
+ *
+ * Leemos de la rama default (no del tag servido) a propósito: así cambiar el
+ * ícono o `Tested up to` se refleja al próximo cache-miss SIN cortar un release
+ * — son metadatos de presentación, no código instalable. Degradación elegante:
+ * cualquier fallo devuelve {} y el info.json se sirve sin estos campos.
+ */
+export async function fetchPluginHeader({
+  owner,
+  repo,
+  pat,
+}: FetchReleasesOptions): Promise<PluginHeader> {
+  const url = `${GITHUB_API}/repos/${owner}/${repo}/contents/${repo}.php`;
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${pat}`,
+      Accept: "application/vnd.github.raw+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": USER_AGENT,
+    },
+  }).catch(() => null);
+
+  if (!res || !res.ok) return {};
+  // El header vive arriba del archivo; nos basta el primer bloque.
+  const src = (await res.text().catch(() => "")).slice(0, 4096);
+  return parsePluginHeader(src);
+}
+
+function headerField(src: string, field: string): string | undefined {
+  const re = new RegExp(`^[ \\t/*]*${field}\\s*:\\s*(.+?)\\s*$`, "im");
+  const m = re.exec(src);
+  return m?.[1]?.trim() || undefined;
+}
+
+export function parsePluginHeader(src: string): PluginHeader {
+  return {
+    name: headerField(src, "Plugin Name"),
+    tested: headerField(src, "Tested up to"),
+    requires: headerField(src, "Requires at least"),
+    requiresPhp: headerField(src, "Requires PHP"),
+    author: headerField(src, "Author"),
+    authorUri: headerField(src, "Author URI"),
+    homepage: headerField(src, "Plugin URI"),
+  };
+}
+
+// Nombres de ícono que reconocemos en assets/img/ del repo, por preferencia.
+const ICON_CANDIDATES = [
+  "icon.svg",
+  "icon-256x256.png",
+  "icon-128x128.png",
+  "icon.png",
+];
+
+/**
+ * Busca un ícono por convención en `assets/img/` del repo (rama default) y
+ * devuelve su filename, o null si no hay. Una sola llamada (listado del dir).
+ * Reusable: cualquier plugin que ponga assets/img/icon.png lo obtiene gratis.
+ */
+export async function findRepoIcon({
+  owner,
+  repo,
+  pat,
+}: FetchReleasesOptions): Promise<string | null> {
+  const url = `${GITHUB_API}/repos/${owner}/${repo}/contents/assets/img`;
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${pat}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": USER_AGENT,
+    },
+  }).catch(() => null);
+  if (!res || !res.ok) return null;
+
+  const items = (await res.json().catch(() => [])) as Array<{
+    name: string;
+    type: string;
+  }>;
+  const files = new Set(items.filter((i) => i.type === "file").map((i) => i.name));
+  return ICON_CANDIDATES.find((c) => files.has(c)) ?? null;
+}
+
+/**
+ * Stream del ícono del repo (assets/img/<name>). El Worker usa su PAT, así que
+ * funciona en repos privados; la respuesta es pública (un logo no es sensible)
+ * y cacheable. Content-Type según extensión.
+ */
+export async function streamRepoIcon({
+  owner,
+  repo,
+  name,
+  pat,
+}: FetchReleasesOptions & { name: string }): Promise<Response> {
+  const url = `${GITHUB_API}/repos/${owner}/${repo}/contents/assets/img/${name}`;
+  const upstream = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${pat}`,
+      Accept: "application/vnd.github.raw",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": USER_AGENT,
+    },
+  });
+  if (!upstream.ok || !upstream.body) {
+    return new Response("icon_upstream_error", { status: 502 });
+  }
+  const type = name.toLowerCase().endsWith(".svg")
+    ? "image/svg+xml"
+    : name.toLowerCase().endsWith(".png")
+      ? "image/png"
+      : "application/octet-stream";
+  return new Response(upstream.body, {
+    status: 200,
+    headers: { "Content-Type": type, "Cache-Control": "public, max-age=86400" },
+  });
 }
 
 /**
