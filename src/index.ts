@@ -7,7 +7,10 @@
  *   GET  /:plugin/info.json?site_token=X        → metadata PUC
  *   GET  /:plugin/download/:tag?site_token=X    → stream del ZIP
  *
- * Todos los endpoints de plugin requieren site_token válido en KV.
+ * Todos los endpoints de plugin requieren site_token válido en KV. Desde 0.4.0 el token
+ * puede llegar como `Authorization: Bearer X` (preferido: no queda en URLs ni logs) o
+ * como `?site_token=X` (clientes anteriores). Si llegó por cabecera, el download_url del
+ * info.json sale SIN token y el cliente vuelve a mandar la cabecera al bajar el ZIP.
  */
 
 import type { Env } from "./types";
@@ -23,7 +26,7 @@ import {
 } from "./github";
 import { buildMetadata } from "./puc";
 
-const WORKER_VERSION = "0.3.1";
+const WORKER_VERSION = "0.4.0";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -37,7 +40,7 @@ export default {
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
         },
       });
     }
@@ -79,6 +82,16 @@ export default {
   },
 };
 
+/**
+ * Token del cliente: `Authorization: Bearer X` (preferido) o `?site_token=X` (legado).
+ */
+function tokenDe(request: Request, url: URL): { token: string | null; porCabecera: boolean } {
+  const auth = request.headers.get("authorization") ?? "";
+  const m = /^Bearer\s+(\S+)$/i.exec(auth.trim());
+  if (m) return { token: m[1]!, porCabecera: true };
+  return { token: url.searchParams.get("site_token"), porCabecera: false };
+}
+
 async function handleInfo(
   request: Request,
   env: Env,
@@ -86,7 +99,7 @@ async function handleInfo(
   plugin: string,
   url: URL
 ): Promise<Response> {
-  const token = url.searchParams.get("site_token");
+  const { token, porCabecera } = tokenDe(request, url);
   const referer = request.headers.get("referer");
 
   const validation = await validateSiteToken(env, token, plugin, referer);
@@ -157,7 +170,9 @@ async function handleInfo(
     "__TEMPLATE__",
     `${url.origin}`
   );
-  metadata.download_url = `${downloadUrl}?site_token=${encodeURIComponent(token!)}`;
+  metadata.download_url = porCabecera
+    ? downloadUrl
+    : `${downloadUrl}?site_token=${encodeURIComponent(token!)}`;
 
   // El ícono NO lleva token (lo carga el <img> del wp-admin). Solo resolvemos origin.
   if (metadata.icons && typeof metadata.icons === "object") {
@@ -187,7 +202,7 @@ async function handleDownload(
   tag: string,
   url: URL
 ): Promise<Response> {
-  const token = url.searchParams.get("site_token");
+  const { token } = tokenDe(request, url);
   const referer = request.headers.get("referer");
 
   const validation = await validateSiteToken(env, token, plugin, referer);
