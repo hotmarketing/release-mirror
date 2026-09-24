@@ -289,7 +289,7 @@ export async function streamAsset({
   // Pasamos content-length / content-type si vienen, omitimos el resto por privacidad.
   const headers = new Headers({
     "Content-Type": upstream.headers.get("content-type") ?? "application/zip",
-    "Cache-Control": "public, max-age=60",
+    "Cache-Control": "private, max-age=60",
   });
   const cl = upstream.headers.get("content-length");
   if (cl) headers.set("Content-Length", cl);
