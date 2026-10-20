@@ -48,7 +48,7 @@ fi
 
 OLD_TRACK=$(echo "$CURRENT" | jq -r '.track')
 CLIENT=$(echo "$CURRENT" | jq -r '.client')
-PLUGIN=$(echo "$CURRENT" | jq -r '.plugin')
+PLUGIN=$(echo "$CURRENT" | jq -r '(.plugins // [.plugin]) | join(",")')
 
 if [ "$OLD_TRACK" = "$NEW_TRACK" ]; then
   echo "nada que hacer: $CLIENT/$PLUGIN ya está en track '$NEW_TRACK'"
